@@ -7,13 +7,15 @@ puppeteer.use(StealthPlugin());
 const URL = "https://www.webmotors.com.br/carros/sp/loja.bavaro-veiculos-3957473";
 
 const SUPABASE_URL = "https://tiwxehamnptkdxfikytp.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpd3hlaGFtbnB0a2R4ZmlreXRwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQzNTMzNCwiZXhwIjoyMDkxMDExMzM0fQ.sfnLYrrDyVxaq77rD4o9Bl9XawGGHAI5HQ2CMQCQz88"; // ⚠️ mantém sua key
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpd3hlaGFtbnB0a2R4ZmlreXRwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQzNTMzNCwiZXhwIjoyMDkxMDExMzM0fQ.sfnLYrrDyVxaq77rD4o9Bl9XawGGHAI5HQ2CMQCQz88"; // ⚠️ recomendo trocar depois por segurança
 
 async function salvarNoSupabase(carros) {
   for (const car of carros) {
+    if (!car.nome) continue;
+
     const partes = car.nome.split(" ");
-    const brand = partes[0];
-    const model = partes.slice(1).join(" ");
+    const brand = partes[0] || "";
+    const model = partes.slice(1).join(" ") || "";
 
     const slugBase = `${brand}-${model}`
       .toLowerCase()
@@ -28,12 +30,12 @@ async function salvarNoSupabase(carros) {
       slug,
       brand,
       model,
-      year: car.ano,
+      year: car.ano || new Date().getFullYear(),
       km: car.km || 0,
       price: car.preco || 0,
-      cover_image: null, // ❌ sem imagem
-      gallery: [], // ❌ sem galeria
-      webmotors_id: car.id, // ID único real
+      cover_image: null,
+      gallery: [],
+      webmotors_id: car.id,
       source: "webmotors"
     };
 
@@ -54,7 +56,9 @@ async function rodar() {
   console.log("🚀 Abrindo navegador stealth...");
 
   const browser = await puppeteer.launch({
-    headless: true
+    headless: true,
+    executablePath: "/usr/bin/google-chrome",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
   });
 
   const page = await browser.newPage();
@@ -80,7 +84,7 @@ async function rodar() {
         if (data?.SearchResults?.length > 0) {
           carrosAPI = data.SearchResults;
         }
-      } catch {}
+      } catch (e) {}
     }
   });
 
@@ -98,6 +102,12 @@ async function rodar() {
 
   console.log(`🚗 ${carros.length} carros encontrados`);
 
+  if (carros.length === 0) {
+    console.log("❌ Nenhum carro encontrado");
+    await browser.close();
+    return;
+  }
+
   console.log("💾 Salvando no Supabase...");
   await salvarNoSupabase(carros);
 
@@ -106,10 +116,11 @@ async function rodar() {
   await browser.close();
 }
 
-// 🔥 roda uma vez ao iniciar
+// 🔥 roda uma vez
 rodar();
 
-// 🔥 roda automático a cada 30 minutos
+// 🔥 roda automático a cada 30 min (local)
+// (no GitHub Actions isso não importa, ele roda pelo cron)
 setInterval(() => {
   console.log("🔄 Rodando automático...");
   rodar();
