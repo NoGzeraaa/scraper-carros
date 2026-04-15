@@ -21,5 +21,9 @@ jobs:
       - name: Instalar dependências
         run: npm install
 
+      # 🔥 AQUI É A CORREÇÃO
+      - name: Instalar Chrome
+        run: npx puppeteer browsers install chrome
+
       - name: Rodar scraper
         run: node index.js
